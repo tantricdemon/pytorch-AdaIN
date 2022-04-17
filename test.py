@@ -58,6 +58,7 @@ parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 parser.add_argument('--decoder', type=str, default='models/decoder.pth')
 
 # Additional options
+parser.add_argument('--feature_tracking', type=float, default=0.1)
 parser.add_argument('--content_size', type=int, default=512,
                     help='New (minimum) size for the content image, \
                     keeping the original size if set to 0')
@@ -132,7 +133,7 @@ style_tf = test_transform(args.style_size, args.crop)
 content_paths = sorted(content_paths)
 
 inputLocation = args.content_dir +'/frame'
-featureTrack = 0.1
+featureTrack = args.feature_tracking
 f = 0
 if featureTrack>0:
     img = np.float32(Image.open(inputLocation + '%09d.jpg'%0))
