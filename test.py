@@ -10,6 +10,8 @@ from torchvision.utils import save_image
 import net
 from function import adaptive_instance_normalization, coral
 
+import cv2
+import numpy as np
 
 def test_transform(size, crop):
     transform_list = []
@@ -127,6 +129,16 @@ decoder.to(device)
 
 content_tf = test_transform(args.content_size, args.crop)
 style_tf = test_transform(args.style_size, args.crop)
+content_paths = sorted(content_paths)
+
+inputLocation = args.content_dir +'/frame'
+featureTrack = 0.1
+f = 0
+if featureTrack>0:
+    img = np.float32(Image.open(inputLocation + '%09d.jpg'%0))
+    nuimg = img
+    grayImg = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    h,w,c = img.shape
 
 for content_path in content_paths:
     if do_interpolation:  # one content image, N style image
@@ -145,6 +157,22 @@ for content_path in content_paths:
 
     else:  # process one content and one style
         for style_path in style_paths:
+            if featureTrack>0:
+                previousImg = img
+                previousGrayImg = grayImg
+                if f>0:
+                    img = np.float32(Image.open(inputLocation + '%09d.jpg'%(f)))
+                    grayImg = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+                    flow = cv2.calcOpticalFlowFarneback(previousGrayImg, grayImg, None, pyr_scale=0.5, levels=3, winsize=15, iterations=3, poly_n=5, poly_sigma=1.2, flags=0)
+                    flow = -flow
+                    flow[:,:,0] += np.arange(w)
+                    flow[:,:,1] += np.arange(h)[:,np.newaxis]
+                    halludiff = nuimg - previousImg
+                    halludiff = cv2.remap(halludiff, flow, None, cv2.INTER_LINEAR)
+                    nuimg = img + halludiff*featureTrack
+                    np.clip(nuimg, 0, 255, out=nuimg)
+                    Image.fromarray(np.uint8(nuimg)).save(inputLocation + '%09d.jpg'%(f))
+
             content = content_tf(Image.open(str(content_path)))
             style = style_tf(Image.open(str(style_path)))
             if args.preserve_color:
@@ -159,3 +187,5 @@ for content_path in content_paths:
             output_name = output_dir / '{:s}_stylized_{:s}{:s}'.format(
                 content_path.stem, style_path.stem, args.save_ext)
             save_image(output, str(output_name))
+            nuimg = np.float32(Image.open(output_name))
+            f += 1
